@@ -9,7 +9,6 @@ Supports multiple worker threads, task queueing, and safe shutdown.
 - Internally implemented using `std::packaged_task` + `std::future`.
 
 ## Features
-- Simple and clean thread pool implementation
-- MPMC task queue (multiple producers / multiple consumers)
+- Not very simple and clean thread pool implementation
+- MPMC task queue 
 - `std::future` return values
-- Graceful shutdown using condition variable
