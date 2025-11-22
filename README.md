@@ -1,4 +1,4 @@
-# C++ Thread Pool (2025.11.14)
+# C++ Pool Design (2025.11.14)
 A lightweight C++ thread pool implemented from scratch for concurrency practice.  
 Supports multiple worker threads, task queueing, and safe shutdown.
 
