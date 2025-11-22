@@ -9,8 +9,8 @@ Supports multiple worker threads, task queueing, and safe shutdown.
 
 ## Update (2025.11.22)
 - Added a **Memory_Pool** .
-- Auto allocate & deallocate blocks from pre-allocated memory page.
-- Calculate page size and auto allocated from memory.
+- Auto allocate & deallocate blocks for tasks from pre-allocated memory page.
+- Calculate page size & auto align with system `size_t`.
 
 ## Features
 - Not very simple and clean thread pool implementation
