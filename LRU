@@ -1,0 +1,73 @@
+#include <iostream>
+#include <list>
+#include <unordered_map>
+
+class LRUCache {
+public:
+    LRUCache(int capacity)
+        : capacity_(capacity) {}
+
+    int get(int key) {
+        auto it = map_.find(key);
+        if (it == map_.end()) {
+            // 不存在
+            return -1;
+        }
+        // it->second 是链表中的节点迭代器
+        // 访问了这个 key，要把它移动到链表头（表示“最近使用”）
+        cache_.splice(cache_.begin(), cache_, it->second);
+        return it->second->second; // pair<key, value> 的 second 是 value
+    }
+
+    void put(int key, int value) {
+        if (capacity_ == 0) return;
+
+        auto it = map_.find(key);
+        if (it != map_.end()) {
+            // 已经存在：更新 value，并移到头部
+            it->second->second = value;
+            cache_.splice(cache_.begin(), cache_, it->second);
+            return;
+        }
+
+        // 不存在：如果满了，先淘汰尾部
+        if ((int)cache_.size() == capacity_) {
+            auto &backPair = cache_.back();   // 尾部是“最久未使用”
+            int oldKey = backPair.first;
+            map_.erase(oldKey);              // 从 map 删除
+            cache_.pop_back();               // 从链表删除
+        }
+
+        // 插入到头部
+        cache_.emplace_front(key, value);
+        map_[key] = cache_.begin();
+    }
+
+    void printCache() const {
+    std::cout << "Cache: ";
+    for (auto &p : cache_) {
+        std::cout << "(" << p.first << "," << p.second << ") ";
+    }
+    std::cout << std::endl;
+}
+
+private:
+    int capacity_;
+
+    // 双向链表：保存 (key, value)，头 = 最近，尾 = 最旧
+    std::list<std::pair<int, int>> cache_;
+
+    // Hash：key -> 该 key 在链表中的迭代器
+    std::unordered_map<int, std::list<std::pair<int, int>>::iterator> map_;
+};
+
+int main() {
+    LRUCache lru(2);
+    lru.put(1, 10);   // cache: (1,10)
+    lru.put(2, 20);   // cache: (2,20) (1,10)
+    std::cout << lru.get(1) << std::endl; // 10, cache: (1,10) (2,20)
+    lru.put(3, 30);   // 淘汰 key=2, cache: (3,30) (1,10)
+    std::cout << lru.get(2) << std::endl; // -1
+    std::cout << lru.get(3) << std::endl; // 30
+    return 0;
+}
