@@ -1,0 +1,112 @@
+#include <iostream>
+#include <unordered_map>
+#include <list>
+
+// 节点结构：一个 key 的完整信息
+struct LFUNode {
+    int key;
+    int value;
+    int freq;
+};
+
+class LFUCache {
+public:
+    LFUCache(int capacity) : capacity_(capacity), minFreq_(0) {}
+
+    int get(int key) {
+        auto it = keyTable_.find(key);
+        if (it == keyTable_.end()) {
+            return -1;
+        }
+        // it->second 是节点在某个 freq 链表中的迭代器
+        auto nodeIt = it->second;
+        LFUNode node = *nodeIt;
+        int oldFreq = node.freq;
+
+        // 从旧 freq 链表中删掉
+        freqTable_[oldFreq].erase(nodeIt);
+        if (freqTable_[oldFreq].empty()) {
+            freqTable_.erase(oldFreq);
+            if (minFreq_ == oldFreq) {
+                minFreq_++;
+            }
+        }
+
+        // 增加频率
+        node.freq++;
+        int newFreq = node.freq;
+        freqTable_[newFreq].push_front(node);
+        keyTable_[key] = freqTable_[newFreq].begin();
+
+        return node.value;
+    }
+
+    void put(int key, int value) {
+        if (capacity_ == 0) return;
+
+        auto it = keyTable_.find(key);
+        if (it != keyTable_.end()) {
+            // key 已存在：更新 value，并提升频率
+            auto nodeIt = it->second;
+            LFUNode node = *nodeIt;
+            node.value = value;
+
+            int oldFreq = node.freq;
+            freqTable_[oldFreq].erase(nodeIt);
+            if (freqTable_[oldFreq].empty()) {
+                freqTable_.erase(oldFreq);
+                if (minFreq_ == oldFreq) {
+                    minFreq_++;
+                }
+            }
+
+            node.freq++;
+            int newFreq = node.freq;
+            freqTable_[newFreq].push_front(node);
+            keyTable_[key] = freqTable_[newFreq].begin();
+            return;
+        }
+
+        // key 不存在：可能要淘汰
+        if ((int)keyTable_.size() == capacity_) {
+            // 找到 minFreq 组 -> 淘汰这个组中“最旧”的那个（尾部）
+            auto &listRef = freqTable_[minFreq_];
+            auto node = listRef.back();
+            int delKey = node.key;
+
+            listRef.pop_back();
+            if (listRef.empty()) {
+                freqTable_.erase(minFreq_);
+            }
+            keyTable_.erase(delKey);
+        }
+
+        // 插入新节点：freq = 1
+        LFUNode newNode{key, value, 1};
+        freqTable_[1].push_front(newNode);
+        keyTable_[key] = freqTable_[1].begin();
+        minFreq_ = 1;
+    }
+
+private:
+    int capacity_;
+    int minFreq_;
+
+    // key -> 该 key 在某个 freq 链表中的迭代器
+    std::unordered_map<int, std::list<LFUNode>::iterator> keyTable_;
+
+    // freq -> 双向链表（链表里是所有这个 freq 的 key）
+    std::unordered_map<int, std::list<LFUNode>> freqTable_;
+};
+
+int main() {
+    LFUCache cache(2);
+    cache.put(1, 10);  // freq=1
+    cache.put(2, 20);  // freq=1
+    std::cout << cache.get(1) << std::endl; // 10 , freq(1)=2
+    cache.put(3, 30);  // 淘汰 key=2
+    std::cout << cache.get(2) << std::endl; // -1
+    std::cout << cache.get(3) << std::endl; // 30
+    std::cout << cache.get(1) << std::endl; // 10
+    return 0;
+}
