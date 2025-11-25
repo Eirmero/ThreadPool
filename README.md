@@ -20,3 +20,4 @@ Supports multiple worker threads, task queueing, and safe shutdown.
 ## Update (2025.11.25)
 - Added a **LRU** .
 - Added a **LFU** .
+- Added a **RingBuffer** .
