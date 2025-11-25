@@ -1,0 +1,112 @@
+#include <iostream>
+#include <vector>
+
+class RingBuffer {
+public:
+    // 构造函数：传入“底层数组长度”
+    // 注意：实际最多能存 capacity - 1 个元素
+    RingBuffer(int capacity)
+        : buf_(capacity), cap_(capacity), head_(0), tail_(0) {}
+
+    // 往队列里 push 一个元素
+    // 返回 true = 成功, false = 队列满了
+    bool push(int x) {
+        int next_tail = (tail_ + 1) % cap_;   // 计算写入后 tail 应该指向的位置
+
+        // 如果写完后 next_tail == head_，说明再写就会撞上 head_，队列满
+        if (next_tail == head_) {
+            return false; // full
+        }
+
+        buf_[tail_] = x;   // 把数据写入当前 tail 位置
+        tail_ = next_tail; // 更新 tail
+        return true;
+    }
+
+    // 从队列里 pop 一个元素
+    // 返回 true = 成功，并通过引用参数 x 返回数据
+    // false = 队列空
+    bool pop(int& x) {
+        // head == tail 说明没有数据可以读了
+        if (head_ == tail_) {
+            return false; // empty
+        }
+
+        x = buf_[head_];               // 读出 head 位置的数据
+        head_ = (head_ + 1) % cap_;    // head 往前走一格
+        return true;
+    }
+
+    // 判断是否为空
+    bool empty() const {
+        return head_ == tail_;
+    }
+
+    // 判断是否“逻辑满”（最多只能放 cap_ - 1 个元素）
+    bool full() const {
+        int next_tail = (tail_ + 1) % cap_;
+        return next_tail == head_;
+    }
+
+    // 当前元素个数（不是必须的，但方便调试）
+    int size() const {
+        if (tail_ >= head_) {
+            return tail_ - head_;
+        } else {
+            return cap_ - (head_ - tail_);
+        }
+    }
+
+    // 打印当前缓冲区状态（调试用）
+    void print() const {
+        std::cout << "RingBuffer state:\n";
+        std::cout << "  cap = " << cap_ << ", size = " << size()
+                  << ", head = " << head_ << ", tail = " << tail_ << "\n";
+        std::cout << "  elements (from head to tail): ";
+
+        int i = head_;
+        while (i != tail_) {
+            std::cout << buf_[i] << " ";
+            i = (i + 1) % cap_;
+        }
+        std::cout << "\n\n";
+    }
+
+private:
+    std::vector<int> buf_; // 底层存储
+    int cap_;              // 底层数组长度（最多存 cap_-1 个元素）
+    int head_;             // 读位置
+    int tail_;             // 写位置
+};
+
+// 简单测试
+int main() {
+    RingBuffer rb(8);  // 底层数组长度 = 8，最多能存 7 个元素
+
+    std::cout << "初始状态:\n";
+    rb.print();
+
+    // 连续 push
+    for (int i = 1; i <= 8; ++i) {
+        bool ok = rb.push(i * 10);
+        std::cout << "push(" << i * 10 << ") " << (ok ? "成功" : "失败(满了)") << "\n";
+        rb.print();
+    }
+
+    int x;
+    // 连续 pop
+    for (int i = 0; i < 5; ++i) {
+        bool ok = rb.pop(x);
+        std::cout << "pop() " << (ok ? "成功, 拿到: " + std::to_string(x) : "失败(空了)") << "\n";
+        rb.print();
+    }
+
+    // 再 push 几个
+    for (int i = 100; i <= 140; i += 20) {
+        bool ok = rb.push(i);
+        std::cout << "push(" << i << ") " << (ok ? "成功" : "失败(满了)") << "\n";
+        rb.print();
+    }
+
+    return 0;
+}
