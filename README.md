@@ -19,5 +19,3 @@ Supports multiple worker threads, task queueing, and safe shutdown.
 
 ## Update (2025.11.25)
 - Added a **LRU** .
-- Auto allocate & deallocate blocks for tasks from pre-allocated memory page.
-- Calculate page size & auto align with system `size_t`.
