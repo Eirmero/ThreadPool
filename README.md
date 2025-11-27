@@ -23,4 +23,4 @@ Supports multiple worker threads, task queueing, and safe shutdown.
 - Added a **RingBuffer** .
 
 ## Update (2025.11.27)
-- Added a **Enhanced**  **RingBuffer** .
+- Added a **Enhanced**  **RingBuffer** for SPSC.
