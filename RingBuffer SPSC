@@ -1,0 +1,136 @@
+#include <iostream>
+#include <vector>
+#include <atomic>
+#include <string>
+
+template <typename T>
+class SpscRingBuffer {
+public:
+    explicit SpscRingBuffer(size_t capacity)
+        : buf_(capacity), cap_(capacity), head_(0), tail_(0) {}
+
+    // 生产者线程调用：尝试写入一个元素
+    bool push(const T& x) {
+        return emplace_push(x);
+    }
+
+    bool push(T&& x) {
+        return emplace_push(std::move(x));
+    }
+
+    // 消费者线程调用：尝试弹出一个元素
+    bool pop(T& out) {
+        // 读 head（本线程独占写它），用 relaxed 就可以
+        size_t head = head_.load(std::memory_order_relaxed);
+        // 需要看到最新的 tail，防止读到旧的“队列为空”的状态，所以用 acquire
+        size_t tail = tail_.load(std::memory_order_acquire);
+
+        if (head == tail) {
+            return false; // empty
+        }
+
+        out = std::move(buf_[head]);  // 读出数据
+
+        size_t next_head = (head + 1) % cap_;
+        // 更新 head，release，保证对 buf_[head] 的读取在逻辑上先于“head++”
+        head_.store(next_head, std::memory_order_release);
+        return true;
+    }
+
+    bool empty() const {
+        size_t head = head_.load(std::memory_order_acquire);
+        size_t tail = tail_.load(std::memory_order_acquire);
+        return head == tail;
+    }
+
+    bool full() const {
+        size_t tail = tail_.load(std::memory_order_acquire);
+        size_t head = head_.load(std::memory_order_acquire);
+        size_t next_tail = (tail + 1) % cap_;
+        return next_tail == head;
+    }
+
+    size_t size() const {
+        size_t head = head_.load(std::memory_order_acquire);
+        size_t tail = tail_.load(std::memory_order_acquire);
+        if (tail >= head) {
+            return tail - head;
+        } else {
+            return cap_ - (head - tail);
+        }
+    }
+
+    size_t capacity() const {
+        return cap_ - 1;
+    }
+
+    void print() const {
+        size_t head = head_.load(std::memory_order_acquire);
+        size_t tail = tail_.load(std::memory_order_acquire);
+
+        std::cout << "SpscRingBuffer state:\n";
+        std::cout << "  cap(array) = " << cap_
+                  << ", logical capacity = " << capacity()
+                  << ", size = " << size()
+                  << ", head = " << head
+                  << ", tail = " << tail << "\n";
+        std::cout << "  elements (from head to tail): ";
+
+        size_t i = head;
+        while (i != tail) {
+            std::cout << buf_[i] << " ";
+            i = (i + 1) % cap_;
+        }
+        std::cout << "\n\n";
+    }
+
+private:
+    template <typename U>
+    bool emplace_push(U&& x) {
+        // 生产者线程：读 tail（自己写它），relaxed OK
+        size_t tail = tail_.load(std::memory_order_relaxed);
+        // 需要知道最新的 head，避免覆盖未读数据，所以 acquire
+        size_t head = head_.load(std::memory_order_acquire);
+
+        size_t next_tail = (tail + 1) % cap_;
+        if (next_tail == head) {
+            return false; // full
+        }
+
+        buf_[tail] = std::forward<U>(x); // 写入数据
+
+        // 更新 tail，用 release，保证“写 buf_[tail]”对消费者可见
+        tail_.store(next_tail, std::memory_order_release);
+        return true;
+    }
+
+    std::vector<T> buf_;
+    size_t cap_;                    // 底层数组大小（最大可存 cap_ - 1）
+    std::atomic<size_t> head_;      // 消费者独占写
+    std::atomic<size_t> tail_;      // 生产者独占写
+};
+
+// 简单测试：单线程模拟（多线程要自己开两个线程分别 push/pop）
+int main() {
+    SpscRingBuffer<int> rb(8); // 数组长8，最多存7个
+
+    std::cout << "初始:\n";
+    rb.print();
+
+    // 模拟生产者 push
+    for (int i = 1; i <= 8; ++i) {
+        bool ok = rb.push(i * 10);
+        std::cout << "push(" << i * 10 << ") " << (ok ? "成功" : "失败(满了)") << "\n";
+        rb.print();
+    }
+
+    int x;
+    // 模拟消费者 pop
+    for (int i = 0; i < 5; ++i) {
+        bool ok = rb.pop(x);
+        std::cout << "pop() " << (ok ? "成功, 拿到: " + std::to_string(x) : "失败(空了)") << "\n";
+        rb.print();
+    }
+
+    return 0;
+}
